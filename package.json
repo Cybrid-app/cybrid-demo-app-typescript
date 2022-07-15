@@ -1,0 +1,27 @@
+{
+  "name": "test-api-bank-typescript",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node dist/src/index.js",
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "compile": "tsc",
+    "dev": "tsc -w",
+    "fix": "gts fix"
+  },
+  "dependencies": {
+    "@cybrid/cybrid-api-bank-typescript": "latest",
+    "axios": "^0.27.2",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "rxjs": "^7.5.5",
+    "xhr2": "^0.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^14.11.2",
+    "gts": "^3.1.0",
+    "prettier": "2.7.1",
+    "typescript": "^4.0.3"
+  }
+}
