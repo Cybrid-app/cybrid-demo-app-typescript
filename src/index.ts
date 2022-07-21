@@ -168,6 +168,15 @@ function main() {
     );
   };
 
+  const pollAccount = (guid: string) => {
+    const evalFunc = (account: cybrid.AccountBankModel) => {
+      const state = account.state!;
+      const expectedState = cybrid.AccountBankModelStateEnum.Created;
+      return state === expectedState;
+    };
+    return poll(getAccount(guid), evalFunc, Config.TIMEOUT);
+  };
+
   const createQuote = (
     customer: cybrid.CustomerBankModel,
     side: cybrid.PostQuoteBankModelSideEnum,
@@ -271,6 +280,7 @@ function main() {
   // Create Account pipeline, requires Create Customer
   const createAccountObs = createCustomerObs.pipe(
     switchMap(customer => createAccount(customer)),
+    switchMap(account => pollAccount(account.guid!)),
     share()
   );
 
