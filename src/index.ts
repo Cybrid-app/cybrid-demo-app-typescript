@@ -39,9 +39,9 @@ function main() {
       }),
       map(configuration => new cybrid.VerificationKeysBankApi(configuration)),
       switchMap(api => {
-        return api.listVerificationKeys({ page: 0, perPage: 1 });
+        return api.listVerificationKeys({page: 0, perPage: 1});
       }),
-      tap(_verificationKey => {
+      tap(_ => {
         console.log('Got verification keys.');
       })
     );
