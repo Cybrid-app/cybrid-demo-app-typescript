@@ -7,7 +7,6 @@ declare global {
       BANK_GUID: string;
       BASE_URL: string;
       TIMEOUT: string;
-      VERIFICATION_KEY_GUID: string;
     }
   }
 }

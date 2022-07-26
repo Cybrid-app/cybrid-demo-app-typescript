@@ -32,18 +32,17 @@ function main() {
     )
   );
 
-  const getVerificationKey = (guid: string) => {
+  const getVerificationKeys = () => {
     return configurationObs.pipe(
       tap(() => {
-        console.log('Getting verification key...');
+        console.log('Getting verification keys...');
       }),
       map(configuration => new cybrid.VerificationKeysBankApi(configuration)),
       switchMap(api => {
-        return api.getVerificationKey({verificationKeyGuid: guid});
+        return api.listVerificationKeys({ page: 0, perPage: 1 });
       }),
-      tap(verificationKey => {
-        console.log('Got verification key.');
-        console.log(`    Verification key guid: ${verificationKey.guid}`);
+      tap(_verificationKey => {
+        console.log('Got verification keys.');
       })
     );
   };
@@ -286,11 +285,11 @@ function main() {
 
   // Create Identity pipeline, requires Create Customer
   const createIdentityObs = createCustomerObs.pipe(
-    combineLatestWith(getVerificationKey(Config.VERIFICATION_KEY_GUID)),
-    switchMap(([customer, verificationKey]) =>
+    combineLatestWith(getVerificationKeys()),
+    switchMap(([customer, verificationKeys]) =>
       createIdentityRecord(
         Config.ATTESTATION_SIGNING_KEY,
-        verificationKey,
+        verificationKeys.objects[0],
         customer,
         Config.BANK_GUID
       )
