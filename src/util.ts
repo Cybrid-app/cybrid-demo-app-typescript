@@ -4,14 +4,12 @@ import * as crypto from 'crypto';
 
 const jwt = require('jsonwebtoken');
 
-
-
 const poll = (obs: Observable<any>, evalFunc: any, maxTime: number) => {
   return interval(1000).pipe(
     mergeMap(_ => obs),
     filter(val => evalFunc(val)),
     take(1),
-    timeout({ each: maxTime }),
+    timeout({each: maxTime})
   );
 };
 

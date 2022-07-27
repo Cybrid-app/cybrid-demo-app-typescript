@@ -9,7 +9,6 @@ const Config = {
   CLIENT_ID: process.env.APPLICATION_CLIENT_ID,
   CLIENT_SECRET: process.env.APPLICATION_CLIENT_SECRET,
   TIMEOUT: Number(process.env.TIMEOUT) * 1000,
-  VERIFICATION_KEY_GUID: process.env.VERIFICATION_KEY_GUID,
 };
 
 export {Config};
