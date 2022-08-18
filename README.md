@@ -10,6 +10,7 @@ Start by cloning this project to your local machine. Within your local repositor
 
 ```
 $ npm install
+$ npm run compile
 ```
 
 ## Setup
@@ -17,6 +18,8 @@ $ npm install
 The demo application requires API access to the Cybrid Sandbox.
 To get started in the Sandbox, register for an account at https://www.cybrid.xyz/access.
 Once logged in, you will be prompted to name your Organization, create a Bank, and generate an API key pair.
+
+This demo application has been tested with Node v18.7.0.
 
 ## Configuration
 
