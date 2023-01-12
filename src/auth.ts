@@ -12,8 +12,9 @@ const CUSTOMER_SCOPES = [
   'customers:execute',
 ];
 const PRICES_SCOPES = ['prices:read'];
-const QUOTES_SCOPES = ['quotes:execute'];
+const QUOTES_SCOPES = ['quotes:read', 'quotes:execute'];
 const TRADES_SCOPES = ['trades:read', 'trades:execute'];
+const TRANSFERS_SCOPES = ['transfers:read', 'transfers:execute'];
 const SCOPES = [
   ...ACCOUNTS_SCOPES,
   ...BANKS_SCOPES,
@@ -21,6 +22,7 @@ const SCOPES = [
   ...PRICES_SCOPES,
   ...QUOTES_SCOPES,
   ...TRADES_SCOPES,
+  ...TRANSFERS_SCOPES,
 ];
 
 const AUTH_URL = `https://id.${Config.BASE_URL}/oauth/token`;
