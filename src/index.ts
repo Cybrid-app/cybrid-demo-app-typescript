@@ -1,16 +1,21 @@
 // 1. Create a customer
-// 2. Create a BTC-USD trading account
-// 3. Create an identity record
-// 4. Generate a buy quote for BTC-USD
-// 5. Execute the buy quote
-// 6. Get a balance of the customer's BTC-USD trading account
+// 2. Create an identity record for the customer
+// 3. Create a USD fiat account for the customer
+// 4. Create a BTC-USD trading account for the customer
+// 5. Generate a book transfer quote in USD
+// 6. Execute the book transfer quote using a transfer
+// 7. Get the balance of the customer's USD fiat account
+// 8. Generate a buy quote in BTC-USD
+// 9. Execute the buy quote using a trade
+// 10. Get the balance of the customer's BTC-USD trading account
 
-import {combineLatestWith, from, map, share, switchMap, tap} from 'rxjs';
+import {combineLatestWith, concat, from, map, Observable, of, share, switchMap, take, tap} from 'rxjs';
 import * as cybrid from '@cybrid/cybrid-api-bank-typescript';
 
 import {create_jwt, poll} from './util';
 import {getToken} from './auth';
 import {Config} from './config';
+import {CustomerBankModel} from "@cybrid/cybrid-api-bank-typescript";
 
 global.XMLHttpRequest = require('xhr2');
 
@@ -28,6 +33,7 @@ function main() {
       token =>
         new cybrid.Configuration({
           accessToken: `Bearer ${token}`,
+          basePath: `https://bank.${Config.BASE_URL}`
         })
     )
   );
@@ -126,24 +132,24 @@ function main() {
     );
   };
 
-  const createAccount = (customer: cybrid.CustomerBankModel) => {
+  const createAccount = (customer: cybrid.CustomerBankModel, account_type: cybrid.PostAccountBankModelTypeEnum, asset: string) => {
     return configurationObs.pipe(
       tap(() => {
-        console.log('Creating account...');
+        console.log(`Creating ${account_type} account for asset ${asset}...`);
       }),
       map(configuration => new cybrid.AccountsBankApi(configuration)),
       switchMap(api => {
         return api.createAccount({
           postAccountBankModel: {
-            type: cybrid.PostAccountBankModelTypeEnum.Trading,
+            type: account_type,
             customer_guid: customer.guid!,
-            asset: 'BTC',
+            asset: asset,
             name: 'Account',
           },
         });
       }),
       tap(account => {
-        console.log('Created account.');
+        console.log(`Created ${account_type} account.`);
         console.log(`    Account guid: ${account.guid}`);
       })
     );
@@ -178,23 +184,34 @@ function main() {
 
   const createQuote = (
     customer: cybrid.CustomerBankModel,
+    product_type: cybrid.PostQuoteBankModelProductTypeEnum,
     side: cybrid.PostQuoteBankModelSideEnum,
-    symbol: string,
-    receiveAmount: number
+    receiveAmount: number,
+    symbol: string | null,
+    asset: string | null
   ) => {
     return configurationObs.pipe(
       tap(() => {
-        console.log('Creating quote...');
+        console.log(`Creating ${side} ${product_type} quote for ${symbol}${asset} of ${receiveAmount}...`);
       }),
       map(configuration => new cybrid.QuotesBankApi(configuration)),
       switchMap(api => {
+        var quoteParameters = {
+          product_type: product_type,
+          customer_guid: customer.guid!,
+          side: side,
+          receive_amount: receiveAmount
+        } as cybrid.PostQuoteBankModel;
+
+        if (symbol) {
+          quoteParameters["symbol"] = symbol;
+        }
+        if (asset) {
+          quoteParameters["asset"] = asset;
+        }
+
         return api.createQuote({
-          postQuoteBankModel: {
-            customer_guid: customer.guid!,
-            symbol: symbol,
-            side: side,
-            receive_amount: receiveAmount,
-          },
+          postQuoteBankModel: quoteParameters,
         });
       }),
       tap(quote => {
@@ -252,99 +269,181 @@ function main() {
     return poll(getTrade(guid), evalFunc, Config.TIMEOUT);
   };
 
-  /*
-   *         Create Customer
-   *                |
-   *              / | \
-   *             /  |  \
-   *       Create   |   Create
-   *      Account   |   Identity
-   *             \  |  /
-   *              \ | /
-   *                |
-   *          Create Quote
-   *                |
-   *                |
-   *          Create Trade
-   *                |
-   *                |
-   *          Get Account
-   */
+  const createTransfer = (quote: cybrid.QuoteBankModel, transfer_type: cybrid.PostTransferBankModelTransferTypeEnum) => {
+    return configurationObs.pipe(
+        tap(() => {
+          console.log(`Creating ${transfer_type} trade...`);
+        }),
+        map(configuration => new cybrid.TransfersBankApi(configuration)),
+        switchMap(api => {
+          return api.createTransfer({
+            postTransferBankModel: {
+              quote_guid: quote.guid!,
+              transfer_type: transfer_type
+            },
+          });
+        }),
+        tap(transfer => {
+          console.log('Created transfer.');
+          console.log(`    Transfer guid: ${transfer.guid}`);
+        })
+    );
+  };
 
-  const quantity = 100_000_000;
+  const getTransfer = (guid: string) => {
+    return configurationObs.pipe(
+        tap(() => {
+          console.log('Getting transfer...');
+        }),
+        map(configuration => new cybrid.TransfersBankApi(configuration)),
+        switchMap(api => {
+          return api.getTransfer({
+            transferGuid: guid,
+          });
+        }),
+        tap(transfer => {
+          console.log('Got transfer.');
+          console.log(`    Transfer guid: ${transfer.guid}`);
+          console.log(`    Transfer state: ${transfer.state}`);
+        })
+    );
+  };
+
+  const pollTransfer = (guid: string) => {
+    const evalFunc = (transfer: cybrid.TransferBankModel) => {
+      const state = transfer.state!;
+      const expectedState = cybrid.TransferBankModelStateEnum.Completed;
+      return state === expectedState;
+    };
+    return poll(getTransfer(guid), evalFunc, Config.TIMEOUT);
+  };
+
+  let customer : cybrid.CustomerBankModel;
+  let cryptoAccount : cybrid.AccountBankModel;
+
+  const fiatQuantity = 100_000;
+  const cryptoQuantity = 100_000;
 
   // Create Customer pipeline
   const createCustomerObs = createCustomer().pipe(share());
 
-  // Create Account pipeline, requires Create Customer
-  const createAccountObs = createCustomerObs.pipe(
-    switchMap(customer => createAccount(customer)),
-    switchMap(account => pollAccount(account.guid!)),
-    share()
-  );
-
   // Create Identity pipeline, requires Create Customer
   const createIdentityObs = createCustomerObs.pipe(
     combineLatestWith(getVerificationKeys()),
-    switchMap(([customer, verificationKeys]) =>
-      createIdentityRecord(
-        Config.ATTESTATION_SIGNING_KEY,
-        verificationKeys.objects[0],
-        customer,
-        Config.BANK_GUID
+    switchMap(([createdCustomer, verificationKeys]) => {
+      customer = createdCustomer;
+      return createIdentityRecord(
+          Config.ATTESTATION_SIGNING_KEY,
+          verificationKeys.objects[0],
+          customer,
+          Config.BANK_GUID
       )
-    ),
+    }),
     switchMap(identityRecord => pollIdentity(identityRecord.guid!))
   );
 
-  // Combined Create Identity and Create Account pipeline, requires Create Customer
-  const createObs = createCustomerObs.pipe(
-    combineLatestWith(createAccountObs, createIdentityObs)
+  // Create fiat account pipeline, requires Create Customer
+  const createFiatAccountObs = createCustomerObs.pipe(
+      switchMap(customer => createAccount(customer, cybrid.PostAccountBankModelTypeEnum.Fiat, "USD")),
+      switchMap(account => pollAccount(account.guid!)),
+      share()
   );
 
-  // Create Trade pipeline, requires Create Customer, Create Account, and Create Identity
-  const executeTradeObs = createObs.pipe(
-    switchMap(([customer]) =>
-      createQuote(
-        customer,
-        cybrid.PostQuoteBankModelSideEnum.Buy,
-        'BTC-USD',
-        quantity
-      )
-    ),
-    switchMap(quote => createTrade(quote)),
-    switchMap(trade => pollTrade(trade.guid!))
+  // Create crypto account pipeline, requires Create Customer
+  const createCryptoAccountObs = createCustomerObs.pipe(
+      switchMap(customer => createAccount(customer, cybrid.PostAccountBankModelTypeEnum.Trading, "BTC")),
+      switchMap(account => {
+        cryptoAccount = account;
+        return pollAccount(account.guid!);
+      }),
+      share()
+  );
+
+  // Combined Create Identity and Create account pipelines, requires Create Customer
+  const createObs = createCustomerObs.pipe(
+    combineLatestWith(createFiatAccountObs, createCryptoAccountObs, createIdentityObs)
+  );
+
+  // Create Transfer pipeline, requires Create Customer, Create Fiat Account and Create Identity
+  const executeTransferObs = createObs.pipe(
+      switchMap(([customer]) =>
+          createQuote(
+              customer,
+              cybrid.PostQuoteBankModelProductTypeEnum.BookTransfer,
+              cybrid.PostQuoteBankModelSideEnum.Deposit,
+              fiatQuantity,
+              null,
+              "USD"
+          )
+      ),
+      switchMap(quote => createTransfer(quote, cybrid.PostTransferBankModelTransferTypeEnum.Book)),
+      switchMap(transfer => pollTransfer(transfer.guid!))
   );
 
   // Get Account pipeline
-  const getAccountObs = createAccountObs.pipe(
-    combineLatestWith(executeTradeObs),
-    switchMap(([account]) => getAccount(account.guid!))
+  const getFiatAccountObs = createFiatAccountObs.pipe(
+      combineLatestWith(executeTransferObs),
+      switchMap(([account]) => getAccount(account.guid!))
   );
 
-  // Verify account balance
-  getAccountObs
+  // Verify fiat account balance
+  getFiatAccountObs
     .pipe(
-      tap(account => {
-        const balance = account.platform_balance!;
-        const expectedBalance = quantity;
-        if (balance !== expectedBalance) {
-          throw new InvalidBalanceError(balance, expectedBalance);
+        tap(account => {
+          const balance = account.platform_balance!;
+          const expectedBalance = fiatQuantity;
+          if (balance !== expectedBalance) {
+            throw new InvalidBalanceError(balance, expectedBalance);
+          }
+        })
+    );
+
+  getFiatAccountObs.subscribe({
+    next: account => {
+      const fiatBalance = account.platform_balance!;
+      console.log(`Fiat USD account for ${customer.guid} has the expected balance: ${fiatBalance}.`);
+      console.log('Test has completed successfully!');
+
+      of([customer]).pipe(
+          switchMap(([customer]) =>
+              createQuote(
+                  customer,
+                  cybrid.PostQuoteBankModelProductTypeEnum.Trading,
+                  cybrid.PostQuoteBankModelSideEnum.Buy,
+                  fiatQuantity,
+                  "BTC-USD",
+                  null
+              )
+          ),
+          switchMap(quote => createTrade(quote)),
+          switchMap(trade => pollTrade(trade.guid!)),
+          switchMap(_trade => getAccount(cryptoAccount.guid!)),
+          tap(account => {
+            const balance = account.platform_balance!;
+            const expectedBalance = cryptoQuantity;
+            if (balance !== expectedBalance) {
+              throw new InvalidBalanceError(balance, expectedBalance);
+            }
+          })
+      ).subscribe({
+        next: account => {
+          const fiatBalance = account.platform_balance!;
+          console.log(`Fiat USD account for ${customer.guid} has the expected balance: ${fiatBalance}.`);
+          console.log('Test has completed successfully!');
+        },
+        error: err => {
+          console.error(`An error has occurred during the test: ${err}`);
+          console.error('Test has failed due to an error.');
+          throw err;
         }
       })
-    )
-    .subscribe({
-      next: account => {
-        const balance = account.platform_balance!;
-        console.log(`Account has the expected balance: ${balance}.`);
-        console.log('Test has completed successfully!');
-      },
-      error: err => {
-        console.error(`An error has occurred during the test: ${err}`);
-        console.error('Test has failed due to an error.');
-        throw err;
-      },
-    });
+    },
+    error: err => {
+      console.error(`An error has occurred during the test: ${err}`);
+      console.error('Test has failed due to an error.');
+      throw err;
+    },
+  });
 }
 
 main();
