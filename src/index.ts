@@ -9,13 +9,12 @@
 // 9. Execute the buy quote using a trade
 // 10. Get the balance of the customer's BTC-USD trading account
 
-import {combineLatestWith, concat, from, map, Observable, of, share, switchMap, take, tap} from 'rxjs';
+import {combineLatestWith, from, map, of, share, switchMap, tap} from 'rxjs';
 import * as cybrid from '@cybrid/cybrid-api-bank-typescript';
 
 import {create_jwt, poll} from './util';
 import {getToken} from './auth';
 import {Config} from './config';
-import {CustomerBankModel} from "@cybrid/cybrid-api-bank-typescript";
 
 global.XMLHttpRequest = require('xhr2');
 
@@ -309,6 +308,42 @@ function main() {
     );
   };
 
+  const executeTrade = (customer: cybrid.CustomerBankModel) => {
+    of([customer]).pipe(
+        switchMap(([customer]) =>
+            createQuote(
+                customer,
+                cybrid.PostQuoteBankModelProductTypeEnum.Trading,
+                cybrid.PostQuoteBankModelSideEnum.Buy,
+                fiatQuantity,
+                "BTC-USD",
+                null
+            )
+        ),
+        switchMap(quote => createTrade(quote)),
+        switchMap(trade => pollTrade(trade.guid!)),
+        switchMap(_trade => getAccount(cryptoAccount.guid!)),
+        tap(account => {
+          const balance = account.platform_balance!;
+          const expectedBalance = cryptoQuantity;
+          if (balance !== expectedBalance) {
+            throw new InvalidBalanceError(balance, expectedBalance);
+          }
+        })
+    ).subscribe({
+      next: account => {
+        const fiatBalance = account.platform_balance!;
+        console.log(`Fiat USD account for ${customer.guid} has the expected balance: ${fiatBalance}.`);
+        console.log('Test has completed successfully!');
+      },
+      error: err => {
+        console.error(`An error has occurred during the test: ${err}`);
+        console.error('Test has failed due to an error.');
+        throw err;
+      }
+    })
+  };
+
   const pollTransfer = (guid: string) => {
     const evalFunc = (transfer: cybrid.TransferBankModel) => {
       const state = transfer.state!;
@@ -404,39 +439,7 @@ function main() {
       console.log(`Fiat USD account for ${customer.guid} has the expected balance: ${fiatBalance}.`);
       console.log('Test has completed successfully!');
 
-      of([customer]).pipe(
-          switchMap(([customer]) =>
-              createQuote(
-                  customer,
-                  cybrid.PostQuoteBankModelProductTypeEnum.Trading,
-                  cybrid.PostQuoteBankModelSideEnum.Buy,
-                  fiatQuantity,
-                  "BTC-USD",
-                  null
-              )
-          ),
-          switchMap(quote => createTrade(quote)),
-          switchMap(trade => pollTrade(trade.guid!)),
-          switchMap(_trade => getAccount(cryptoAccount.guid!)),
-          tap(account => {
-            const balance = account.platform_balance!;
-            const expectedBalance = cryptoQuantity;
-            if (balance !== expectedBalance) {
-              throw new InvalidBalanceError(balance, expectedBalance);
-            }
-          })
-      ).subscribe({
-        next: account => {
-          const fiatBalance = account.platform_balance!;
-          console.log(`Fiat USD account for ${customer.guid} has the expected balance: ${fiatBalance}.`);
-          console.log('Test has completed successfully!');
-        },
-        error: err => {
-          console.error(`An error has occurred during the test: ${err}`);
-          console.error('Test has failed due to an error.');
-          throw err;
-        }
-      })
+      executeTrade(customer);
     },
     error: err => {
       console.error(`An error has occurred during the test: ${err}`);
