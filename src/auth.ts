@@ -25,7 +25,7 @@ const SCOPES = [
   ...TRANSFERS_SCOPES,
 ];
 
-const AUTH_URL = `https://id.${Config.BASE_URL}/oauth/token`;
+const AUTH_URL = `${Config.URL_SCHEME}://id.${Config.BASE_URL}/oauth/token`;
 
 async function getToken(): Promise<string> {
   console.log('Getting auth token...');

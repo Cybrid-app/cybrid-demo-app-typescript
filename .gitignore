@@ -71,6 +71,7 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+local.env
 demo.env
 staging.env
 sandbox.env
