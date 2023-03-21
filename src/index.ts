@@ -420,6 +420,11 @@ function main() {
         type: cybrid.PostIdentificationNumberBankModelTypeEnum.SocialSecurityNumber,
         issuing_country_code: 'US',
         identification_number: '669-55-0349',
+      },
+      {
+        type: cybrid.PostIdentificationNumberBankModelTypeEnum.DriversLicense,
+        issuing_country_code: 'US',
+        identification_number: 'D152096714850065',
       }
     ],
   }
