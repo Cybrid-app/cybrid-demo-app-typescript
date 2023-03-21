@@ -1,5 +1,5 @@
 // 1. Create a customer
-// 2. Create an identity record for the customer
+// 2. Create an attested identity verification for the customer
 // 3. Create a USD fiat account for the customer
 // 4. Create a BTC-USD trading account for the customer
 // 5. Generate a book transfer quote in USD
@@ -12,7 +12,7 @@
 import {combineLatestWith, from, map, of, share, switchMap, tap} from 'rxjs';
 import * as cybrid from '@cybrid/cybrid-api-bank-typescript';
 
-import {create_jwt, poll} from './util';
+import {poll} from './util';
 import {getToken} from './auth';
 import {Config} from './config';
 
@@ -25,6 +25,36 @@ class InvalidBalanceError extends Error {
   }
 }
 
+interface IdentificationNumbers {
+  type: cybrid.PostIdentificationNumberBankModelTypeEnum;
+  issuing_country_code: string;
+  identification_number: string;
+}
+
+interface PersonName {
+  first: string;
+  middle?: string,
+  last: string
+}
+
+interface PersonAddress {
+  street: string;
+  street2?: string,
+  city: string
+  subdivision?: string
+  postal_code?: string
+  country_code: string
+}
+
+interface Person {
+  name: PersonName;
+  address: PersonAddress
+  date_of_birth: string,
+  phone_number: string
+  email_address: string
+  identification_numbers: Array<IdentificationNumbers>
+}
+
 function main() {
   const getTokenObs = from(getToken()).pipe(share());
   const configurationObs = getTokenObs.pipe(
@@ -32,86 +62,65 @@ function main() {
       token =>
         new cybrid.Configuration({
           accessToken: `Bearer ${token}`,
-          basePath: `https://bank.${Config.BASE_URL}`
+          basePath: `${Config.URL_SCHEME}://bank.${Config.BASE_URL}`
         })
     )
   );
 
-  const getVerificationKeys = () => {
-    return configurationObs.pipe(
-      tap(() => {
-        console.log('Getting verification keys...');
-      }),
-      map(configuration => new cybrid.VerificationKeysBankApi(configuration)),
-      switchMap(api => {
-        return api.listVerificationKeys({page: 0, perPage: 1});
-      }),
-      tap(_ => {
-        console.log('Got verification keys.');
-      })
-    );
-  };
-
-  const createIdentityRecord = (
-    signingKey: string,
-    verificationKey: cybrid.VerificationKeyBankModel,
-    customer: cybrid.CustomerBankModel,
-    bankGuid: string
-  ) => {
+  const createIdentityVerification = (customer: cybrid.CustomerBankModel, person: Person) => {
     return configurationObs.pipe(
       tap(() => {
         console.log('Creating identity...');
       }),
-      map(configuration => new cybrid.IdentityRecordsBankApi(configuration)),
+      map(configuration => new cybrid.IdentityVerificationsBankApi(configuration)),
       switchMap(api => {
-        const jwt = create_jwt(signingKey, verificationKey, customer, bankGuid);
-        const type = cybrid.PostIdentityRecordBankModelTypeEnum.Attestation;
-        return api.createIdentityRecord({
-          postIdentityRecordBankModel: {
+        return api.createIdentityVerification({
+          postIdentityVerificationBankModel: {
+            type: cybrid.PostIdentityVerificationBankModelTypeEnum.Kyc,
+            method: cybrid.PostIdentityVerificationBankModelMethodEnum.Attested,
             customer_guid: customer.guid!,
-            type: type,
-            attestation_details: {
-              token: jwt,
-            },
+            name: person.name,
+            address: person.address,
+            date_of_birth: person.date_of_birth,
+            identification_numbers: person.identification_numbers.map(x => x),
           },
         });
       }),
-      tap(identityRecord => {
-        console.log('Created identity record.');
-        console.log(`    Identity record guid: ${identityRecord.guid}`);
+      tap(identityVerification => {
+        console.log('Created identity verification.');
+        console.log(`    Identity verification guid: ${identityVerification.guid}`);
       })
     );
   };
 
-  const getIdentityRecord = (guid: string) => {
+  const getIdentityVerification = (guid: string) => {
     return configurationObs.pipe(
       tap(() => {
         console.log('Getting identity...');
       }),
-      map(configuration => new cybrid.IdentityRecordsBankApi(configuration)),
+      map(configuration => new cybrid.IdentityVerificationsBankApi(configuration)),
       switchMap(api => {
-        return api.getIdentityRecord({
-          identityRecordGuid: guid,
+        return api.getIdentityVerification({
+          identityVerificationGuid: guid,
         });
       }),
-      tap(identityRecord => {
-        console.log('Got identity record.');
-        console.log(`    Identity record guid: ${identityRecord.guid}`);
+      tap(identityVerification => {
+        console.log('Got identity verification.');
+        console.log(`    Identity verification guid: ${identityVerification.guid}`);
       })
     );
   };
 
-  const pollIdentity = (guid: string) => {
-    const evalFunc = (identityRecord: cybrid.IdentityRecordBankModel) => {
-      const state = identityRecord.attestation_details!.state!;
-      const expectedState =
-        cybrid.AttestationDetailsBankModelStateEnum.Verified;
+  const pollIdentityVerification = (guid: string) => {
+    const evalFunc = (identityVerification: cybrid.IdentityVerificationBankModel) => {
+      const state = identityVerification.state!;
+      const expectedState = cybrid.IdentityVerificationBankModelStateEnum.Completed;
       return state === expectedState;
     };
-    return poll(getIdentityRecord(guid), evalFunc, Config.TIMEOUT);
+    return poll(getIdentityVerification(guid), evalFunc, Config.TIMEOUT);
   };
 
-  const createCustomer = () => {
+  const createCustomer = (person: Person) => {
     return configurationObs.pipe(
       tap(() => {
         console.log('Creating customer...');
@@ -121,6 +130,12 @@ function main() {
         return api.createCustomer({
           postCustomerBankModel: {
             type: cybrid.PostCustomerBankModelTypeEnum.Individual,
+            name: person.name,
+            address: person.address,
+            date_of_birth: person.date_of_birth,
+            email_address: person.email_address,
+            phone_number: person.phone_number,
+            identification_numbers: person.identification_numbers.map(x => x)
           },
         });
       }),
@@ -129,6 +144,33 @@ function main() {
         console.log(`    Customer guid: ${customer.guid}`);
       })
     );
+  };
+
+  const getCustomer = (guid: string) => {
+    return configurationObs.pipe(
+      tap(() => {
+        console.log('Getting customer...');
+      }),
+      map(configuration => new cybrid.CustomersBankApi(configuration)),
+      switchMap(api => {
+        return api.getCustomer({
+          customerGuid: guid,
+        });
+      }),
+      tap(customer => {
+        console.log('Got customer.');
+        console.log(`    Customer guid: ${customer.guid}`);
+      })
+    );
+  };
+
+  const pollCustomer = (guid: string) => {
+    const evalFunc = (customer: cybrid.CustomerBankModel) => {
+      const state = customer.state!;
+      const expectedState = cybrid.CustomerBankModelStateEnum.Unverified;
+      return state === expectedState;
+    };
+    return poll(getCustomer(guid), evalFunc, Config.TIMEOUT);
   };
 
   const createAccount = (customer: cybrid.CustomerBankModel, account_type: cybrid.PostAccountBankModelTypeEnum, asset: string) => {
@@ -191,7 +233,7 @@ function main() {
   ) => {
     return configurationObs.pipe(
       tap(() => {
-        console.log(`Creating ${side} ${product_type} quote for ${symbol}${asset} of ${receiveAmount}...`);
+        console.log(`Creating ${side} ${product_type} quote for ${symbol || asset} of ${receiveAmount}...`);
       }),
       map(configuration => new cybrid.QuotesBankApi(configuration)),
       switchMap(api => {
@@ -358,23 +400,49 @@ function main() {
 
   const fiatQuantity = 100_000;
   const cryptoQuantity = 100_000;
+  const person: Person = {
+    name: {
+      first: 'Jane',
+      last: 'Doe'
+    },
+    address: {
+      street: '15310 Taylor Walk Suite 995',
+      city: 'New York',
+      subdivision: 'NY',
+      postal_code: '12099',
+      country_code: 'US',
+    },
+    date_of_birth: '2001-01-01',
+    email_address: 'jane.doe@example.org',
+    phone_number: '+12406525665',
+    identification_numbers: [
+      {
+        type: cybrid.PostIdentificationNumberBankModelTypeEnum.SocialSecurityNumber,
+        issuing_country_code: 'US',
+        identification_number: '669-55-0349',
+      },
+      {
+        type: cybrid.PostIdentificationNumberBankModelTypeEnum.DriversLicense,
+        issuing_country_code: 'US',
+        identification_number: 'D152096714850065',
+      }
+    ],
+  }
 
   // Create Customer pipeline
-  const createCustomerObs = createCustomer().pipe(share());
+  const createCustomerObs = createCustomer(person).pipe(
+    switchMap(customer => pollCustomer(customer.guid!)),
+    share()
+  );
 
   // Create Identity pipeline, requires Create Customer
   const createIdentityObs = createCustomerObs.pipe(
-    combineLatestWith(getVerificationKeys()),
-    switchMap(([createdCustomer, verificationKeys]) => {
+    switchMap(createdCustomer => {
       customer = createdCustomer;
-      return createIdentityRecord(
-          Config.ATTESTATION_SIGNING_KEY,
-          verificationKeys.objects[0],
-          customer,
-          Config.BANK_GUID
-      )
+      return createIdentityVerification(createdCustomer, person);
     }),
-    switchMap(identityRecord => pollIdentity(identityRecord.guid!))
+    switchMap(identityVerification => pollIdentityVerification(identityVerification.guid!)),
+    share(),
   );
 
   // Create fiat account pipeline, requires Create Customer
@@ -396,7 +464,7 @@ function main() {
 
   // Combined Create Identity and Create account pipelines, requires Create Customer
   const createObs = createCustomerObs.pipe(
-    combineLatestWith(createFiatAccountObs, createCryptoAccountObs, createIdentityObs)
+    combineLatestWith(createIdentityObs, createFiatAccountObs, createCryptoAccountObs)
   );
 
   // Create Transfer pipeline, requires Create Customer, Create Fiat Account and Create Identity
