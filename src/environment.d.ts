@@ -7,8 +7,9 @@ declare global {
       BANK_GUID: string;
       BASE_URL: string;
       TIMEOUT: string;
+      CRYPOT_ASSETS: string;
     }
   }
 }
 
-export {};
+export { };
