@@ -292,9 +292,9 @@ function main() {
     const postQuoteBankModel: cybrid.PostQuoteBankModel = {
       product_type: product_type,
       customer_guid: customer.guid,
+      side: side,
       asset: asset,
       symbol: symbol,
-      side: side,
       receive_amount: receive_amount,
       deliver_amount: deliver_amount
     }
@@ -328,19 +328,10 @@ function main() {
     const postTransferBankModel: cybrid.PostTransferBankModel = {
       quote_guid: quote.guid!,
       transfer_type: transfer_type,
+      source_account_guid: source_platform_account?.guid,
+      destination_account_guid: destination_platform_account?.guid,
+      external_wallet_guid: external_wallet?.guid,
     };
-
-    if (source_platform_account) {
-      postTransferBankModel.source_account_guid = source_platform_account.guid;
-    }
-
-    if (destination_platform_account) {
-      postTransferBankModel.destination_account_guid = destination_platform_account.guid;
-    }
-
-    if (external_wallet) {
-      postTransferBankModel.external_wallet_guid = external_wallet.guid;
-    }
 
     return configuration$.pipe(
       map(configuration => new cybrid.TransfersBankApi(configuration)),
