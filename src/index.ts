@@ -58,7 +58,7 @@ function main() {
       token =>
         new cybrid.Configuration({
           accessToken: `Bearer ${token}`,
-          basePath: `${Config.URL_SCHEME}://${Config.BASE_URL}`
+          basePath: `${Config.URL_SCHEME}://bank.${Config.BASE_URL}`
         })
     )
   );
@@ -94,7 +94,6 @@ function main() {
     ],
   };
 
-
   function create_customer(person: Person): Observable<cybrid.CustomerBankModel> {
     const postCustomerNameModel: cybrid.PostCustomerNameBankModel = <cybrid.PostCustomerNameBankModel>person.name
     const postCustomerBankModel: cybrid.PostCustomerBankModel = {
@@ -115,7 +114,8 @@ function main() {
       }),
       tap((customer) => console.log(`Created customer ${customer.guid}`)),
       catchError((e) => {
-        throw error(`An error ocurred when creating a customer: ${e.response}`)
+        console.error('An error ocurred when creating a customer:');
+        throw e;
       })
     )
   }
@@ -132,7 +132,8 @@ function main() {
       }),
       tap((customer) => console.log(`Got customer: ${customer.guid}, state: ${customer.state}`)),
       catchError((e) => {
-        throw error(`An error ocurred when getting a customer: ${e.response}`);
+        console.error('An error occured when getting a customer:');
+        throw e;
       })
     )
   }
@@ -160,7 +161,8 @@ function main() {
       switchMap(api => api.createAccount({ postAccountBankModel })),
       tap((account) => console.log(`Created account: ${account.guid}`)),
       catchError((e) => {
-        throw error(`An error ocurred when creating an account: ${e.response}`);
+        console.error('An error ocurred when creating an account:');
+        throw e;
       })
     )
   }
@@ -179,7 +181,8 @@ function main() {
       map(list => list.objects),
       tap(() => console.log('Listed accounts.')),
       catchError((e) => {
-        throw error(`An error ocurred when listing accounts: ${e.response}`);
+        console.error('An error ocurred when listing accounts:');
+        throw e;
       })
     )
   }
@@ -192,7 +195,8 @@ function main() {
       switchMap(api => api.getAccount({ accountGuid: guid })),
       tap((account) => console.log(`Got account: ${account.guid}, state: ${account.state}`)),
       catchError((e) => {
-        throw error(`An error ocurred when getting an account: ${e.response}`);
+        console.error('An error ocurred when getting an account:');
+        throw e;
       })
     )
   }
@@ -237,7 +241,8 @@ function main() {
       }),
       tap((identity_verification) => console.log(`Created identity verification: ${identity_verification.guid}`)),
       catchError((e) => {
-        throw error(`An error ocurred when creating an identity: ${e.response}`)
+        console.error('An error ocurred when creating an identity:');
+        throw e;
       })
     )
   }
@@ -250,7 +255,8 @@ function main() {
       switchMap(api => api.getIdentityVerification({ identityVerificationGuid: guid })),
       tap((identity_verification) => console.log(`Got identity verification: ${identity_verification.guid}`)),
       catchError((e) => {
-        throw error(`An error ocurred when getting identity: ${e.response}`)
+        console.error('An error ocurred when getting an identity:');
+        throw e;
       })
     )
   }
@@ -298,7 +304,8 @@ function main() {
       switchMap(api => api.createQuote({ postQuoteBankModel })),
       tap((quote) => console.log(`Created quote: ${quote.guid}`)),
       catchError((e) => {
-        throw new Error(`An error ocurred when creating a quote: ${JSON.stringify(e.response)}`);
+        console.error('An error ocurred when creating a quote:');
+        throw e;
       })
     )
   }
@@ -340,7 +347,8 @@ function main() {
       switchMap(api => api.createTransfer({ postTransferBankModel })),
       tap((transfer) => console.log(`Created ${transfer_type} transfer: ${transfer.guid}`)),
       catchError(e => {
-        throw error(`An error ocurred when creating a ${transfer_type} transfer: ${e.response}`)
+        console.error(`An error ocurred when creating a ${transfer_type} transfer:`);
+        throw e;
       })
     );
   }
@@ -353,7 +361,8 @@ function main() {
       switchMap(api => api.getTransfer({ transferGuid: guid })),
       tap((transfer) => console.log(`Got transfer: ${transfer.guid}, state: ${transfer.state}`)),
       catchError((e) => {
-        throw error(`An error ocurred when getting transfer: ${e.response.error}`);
+        console.error('An error ocurred when getting transfer:');
+        throw e;
       })
     )
   }
@@ -382,7 +391,8 @@ function main() {
       switchMap(api => api.createExternalWallet({ postExternalWalletBankModel })),
       tap((wallet) => console.log(`Created external wallet: ${wallet.guid} `)),
       catchError((e) => {
-        throw error(`An error ocurred when creating external wallet: ${e.response} `);
+        console.error('An error ocurred when creating external wallet:');
+        throw e;
       })
     )
   }
@@ -395,7 +405,8 @@ function main() {
       switchMap(api => api.getExternalWallet({ externalWalletGuid: guid })),
       tap((wallet) => console.log(`Got external wallet: ${wallet.guid}, state: ${wallet.state}`)),
       catchError((e) => {
-        throw error(`An error ocurred when getting external wallet: ${e.response}`);
+        console.error('An error ocurred when getting external wallet:');
+        throw e;
       })
     )
   }
@@ -416,7 +427,8 @@ function main() {
       switchMap(api => api.createTrade({ postTradeBankModel: { quote_guid: quote.guid! } })),
       tap((trade) => console.log(`Created trade: ${trade.guid} `)),
       catchError((e) => {
-        throw error(`An error ocurred when creating trade: ${e.response.error}`);
+        console.error(`An error ocurred when creating trade:`);
+        throw e;
       })
     )
   }
@@ -429,7 +441,8 @@ function main() {
       switchMap(api => api.getTrade({ tradeGuid: guid })),
       tap((trade) => console.log(`Got trade: ${trade.guid}, state: ${trade.state} `)),
       catchError((e) => {
-        throw error(`An error ocurred when getting trade: ${e.response}`);
+        console.error('An error ocurred when getting trade:');
+        throw e;
       })
     )
   }

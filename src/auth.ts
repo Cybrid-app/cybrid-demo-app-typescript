@@ -27,7 +27,7 @@ const SCOPES = [
   ...EXTERNAL_WALLET_SCOPES,
 ];
 
-const AUTH_URL = `${Config.URL_SCHEME}://api-idp.local.cybrid.com:3000/oauth/token`;
+const AUTH_URL = `${Config.URL_SCHEME}://id.${Config.BASE_URL}/oauth/token`;
 
 async function getToken(): Promise<string> {
   console.log('Getting auth token...');
