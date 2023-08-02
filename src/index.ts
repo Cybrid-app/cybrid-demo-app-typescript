@@ -460,10 +460,10 @@ function main() {
   }
 
   /**
-   * Run workflow tests
+   * Run workflow
    */
 
-  function run_tests() {
+  function run_workflow() {
 
     /**
      * Create customer
@@ -497,7 +497,11 @@ function main() {
      */
 
     const customer_fiat_usd_account$ = combineLatest([customer$, bank_fiat_usd_account$]).pipe(
-      switchMap(([customer]) => create_account(customer, cybrid.PostAccountBankModelTypeEnum.Fiat, 'USD')),
+      switchMap(([customer]) => create_account(
+        customer,
+        cybrid.PostAccountBankModelTypeEnum.Fiat,
+        Currency.usd.iso_code,
+      )),
       switchMap((account) => wait_for_account_created(account)),
       share()
     )
@@ -506,7 +510,7 @@ function main() {
      * Add funds to customer USD account
      */
 
-    // Units are in cents, so $1000 * ¢100
+    // Units are in cents, so $1000 -> ¢
     const usd_quantity = 1000 * 100
 
     // Generate book transfer quote
@@ -610,7 +614,7 @@ function main() {
             product_type: cybrid.PostQuoteBankModelProductTypeEnum.Trading,
             side: cybrid.PostQuoteBankModelSideEnum.Buy,
             deliver_amount,
-            symbol: `${asset}-USD`
+            symbol: `${asset}-${Currency.usd.iso_code}`
           })
         }),
         share()
@@ -670,12 +674,12 @@ function main() {
       combineLatest([crypto_account$, crypto_withdrawal_transfer$]).pipe(
         switchMap(([account]) => wait_for_expected_account_balance(account, 0)),
         tap((account) => console.log(`Crypto ${account.asset} account has the expected balance: ${account.platform_balance}`))
-      ).subscribe()
+      ).subscribe() // Subscribe here to execute the entire workflow
 
     })
   }
 
-  run_tests()
+  run_workflow()
 }
 
 main();
