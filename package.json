@@ -10,8 +10,7 @@
     "fix": "gts fix"
   },
   "dependencies": {
-    "@cybrid/cybrid-api-bank-angular": "^0.81.3",
-    "@cybrid/cybrid-api-bank-typescript": "^0.81.3",
+    "@cybrid/cybrid-api-bank-typescript": "^0.81.24",
     "axios": "^0.27.2",
     "dotenv": "^16.0.1",
     "rxjs": "^7.5.5",

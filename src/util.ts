@@ -10,7 +10,7 @@ const poll = (obs: Observable<any>, evalFunc: any, maxTime: number) => {
   );
 };
 
-function generateRandomBase64(length: number) {
+function generateRandomBase64(length: number): string {
   return crypto.randomBytes(length).toString('base64');
 }
 
