@@ -1,6 +1,6 @@
 import * as axios_lib from 'axios';
 
-import {Config} from './config';
+import { Config } from './config';
 
 const axios = axios_lib.default;
 
@@ -15,6 +15,7 @@ const PRICES_SCOPES = ['prices:read'];
 const QUOTES_SCOPES = ['quotes:read', 'quotes:execute'];
 const TRADES_SCOPES = ['trades:read', 'trades:execute'];
 const TRANSFERS_SCOPES = ['transfers:read', 'transfers:execute'];
+const EXTERNAL_WALLET_SCOPES = ['external_wallets:read', 'external_wallets:execute'];
 const SCOPES = [
   ...ACCOUNTS_SCOPES,
   ...BANKS_SCOPES,
@@ -23,6 +24,7 @@ const SCOPES = [
   ...QUOTES_SCOPES,
   ...TRADES_SCOPES,
   ...TRANSFERS_SCOPES,
+  ...EXTERNAL_WALLET_SCOPES,
 ];
 
 const AUTH_URL = `${Config.URL_SCHEME}://id.${Config.BASE_URL}/oauth/token`;
@@ -50,4 +52,4 @@ async function getToken(): Promise<string> {
   }
 }
 
-export {getToken};
+export { getToken };

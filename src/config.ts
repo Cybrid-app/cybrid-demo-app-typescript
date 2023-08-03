@@ -10,6 +10,7 @@ const Config = {
   CLIENT_ID: process.env.APPLICATION_CLIENT_ID,
   CLIENT_SECRET: process.env.APPLICATION_CLIENT_SECRET,
   TIMEOUT: Number(process.env.TIMEOUT) * 1000,
+  CRYPTO_ASSETS: (process.env.CRYPTO_ASSETS ?? '').split(',')
 };
 
 export {Config};
